@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Team Photo Portal</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .gradient-bg {
+            background: linear-gradient(to bottom, #d1e8ff, #ffffff);
+        }
+        .frame-btn {
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            padding-top: 100%; /* Creates a square button */
+            position: relative;
+        }
+        .frame-btn span {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            padding: 0.25rem;
+            font-size: 0.875rem; /* smaller text for better fit */
+            border-radius: 0 0 0.75rem 0.75rem;
+            font-weight: 600;
+            text-align: center;
+        }
+        /* Active button colors */
+        .frame-btn.active-badgers {
+            box-shadow: 0 0 0 4px #ef4444; /* Red */
+        }
+        .frame-btn.active-bitdefender {
+            box-shadow: 0 0 0 4px #3b82f6; /* Blue */
+        }
+        .frame-btn.active-firewall {
+            box-shadow: 0 0 0 4px #f97316; /* Orange */
+        }
+    </style>
+</head>
+<body class="gradient-bg min-h-screen flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl p-8 w-full max-w-4xl flex flex-col items-center text-center">
+        <img src="C:\Users\Lourenz\Downloads\Paligsahan 2025 (Banner).png" alt="PALIGSAHAN 2025 Logo" class="max-w-xs md:max-w-sm lg:max-w-md mb-6">
+        <p class="text-lg md:text-xl text-gray-600 mb-6">Select your team's frame, upload your photo, and download your final profile picture.</p>
+        
+        <div class="w-full">
+            <h2 class="text-2xl md:text-3xl font-semibold text-gray-700 mb-4">1. Choose Your Frame</h2>
+            <div class="grid grid-cols-2 md:grid-cols-3 gap-4 md:gap-8 mb-6">
+                <!-- Frame Buttons -->
+                <button data-frame="C:\Users\Lourenz\Downloads\BADGERS.png" data-team="badgers" class="frame-btn p-3 rounded-xl shadow hover:shadow-lg transition-shadow bg-red-500" style="background-image: url('uploaded:BADGERS.jpg-10f6a4b9-f1ed-451c-9445-46f1464a1560');"><span>BADGERS</span></button>
+                <button data-frame="C:\Users\Lourenz\Downloads\BITDEFENDER.png" data-team="bitdefender" class="frame-btn p-3 rounded-xl shadow hover:shadow-lg transition-shadow bg-blue-500" style="background-image: url('uploaded:BITDEFENDER.jpg-9377d090-7c49-4fea-9605-641cbf3bff59');"><span>BITDEFENDER</span></button>
+                <button data-frame="C:\Users\Lourenz\Downloads\FIREWALL.png" data-team="firewall" class="frame-btn p-3 rounded-xl shadow hover:shadow-lg transition-shadow bg-orange-500" style="background-image: url('uploaded:FIREWALL.jpg-d3a58284-5427-44b8-8c54-d51338ddaabd');"><span>FIREWALL</span></button>
+            </div>
+        </div>
+
+        <div class="w-full">
+            <h2 class="text-2xl md:text-3xl font-semibold text-gray-700 mb-4">2. Upload Your Photo</h2>
+            <label for="file-upload" class="cursor-pointer bg-gray-200 hover:bg-gray-300 transition-colors py-3 md:py-4 px-6 rounded-xl block w-full text-gray-700 font-semibold mb-6">
+                Click to Upload Photo
+                <input id="file-upload" type="file" accept="image/*" class="hidden">
+            </label>
+        </div>
+        
+        <div class="w-full mb-6">
+            <h2 class="text-2xl md:text-3xl font-semibold text-gray-700 mb-4">3. Preview & Download</h2>
+            <div class="relative w-64 h-64 md:w-80 md:h-80 mx-auto mb-4 rounded-xl overflow-hidden shadow-md border-4 border-gray-200">
+                <canvas id="photoCanvas" width="500" height="500" class="w-full h-full"></canvas>
+            </div>
+            <p id="instruction-message" class="text-sm md:text-base font-medium text-gray-500 mt-2 hidden">Drag the photo or zoom in/out to adjust your image.</p>
+            <a id="download-link" download="profile-photo.png" class="inline-block px-8 py-3 bg-indigo-600 text-white font-bold rounded-full shadow-lg hover:bg-indigo-700 transition-colors transform hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed" style="pointer-events: none; opacity: 0.5;">Download Photo</a>
+        </div>
+        
+        <div id="message" class="text-sm md:text-base font-medium text-gray-500 mt-2"></div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('photoCanvas');
+        const ctx = canvas.getContext('2d');
+        const fileUpload = document.getElementById('file-upload');
+        const downloadLink = document.getElementById('download-link');
+        const message = document.getElementById('message');
+        const instructionMessage = document.getElementById('instruction-message');
+        const frameButtons = document.querySelectorAll('.frame-btn');
+
+        let userImage = new Image();
+        let frameImage = new Image();
+        let selectedFrameUrl = null;
+        let isImageLoaded = false;
+        let isFrameLoaded = false;
+        
+        let imgX = 0;
+        let imgY = 0;
+        let imgScale = 1;
+        let isDragging = false;
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let lastTouchDist = -1;
+
+        // Function to draw both images on the canvas
+        const drawImages = () => {
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw user's image, scaled and positioned
+            if (isImageLoaded) {
+                const imgWidth = userImage.width * imgScale;
+                const imgHeight = userImage.height * imgScale;
+                ctx.drawImage(userImage, imgX, imgY, imgWidth, imgHeight);
+            }
+
+            // Draw frame on top
+            if (isFrameLoaded) {
+                ctx.drawImage(frameImage, 0, 0, canvas.width, canvas.height);
+            }
+
+            // Enable download link only if both are loaded
+            if (isImageLoaded && isFrameLoaded) {
+                downloadLink.style.pointerEvents = 'auto';
+                downloadLink.style.opacity = '1';
+                setMessage('Your photo is ready! Click "Download Photo" to save it.', 'text-green-600');
+            }
+        };
+
+        // Event listener for frame selection
+        frameButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                // Reset active styles
+                frameButtons.forEach(btn => {
+                    btn.classList.remove('active-badgers', 'active-bitdefender', 'active-firewall');
+                });
+                
+                // Add active styles to clicked button
+                const team = e.currentTarget.dataset.team;
+                e.currentTarget.classList.add(`active-${team}`);
+                
+                selectedFrameUrl = e.currentTarget.dataset.frame;
+                frameImage.src = selectedFrameUrl;
+                isFrameLoaded = false;
+                
+                frameImage.onload = () => {
+                    isFrameLoaded = true;
+                    drawImages();
+                };
+                frameImage.onerror = () => {
+                    setMessage('Error loading frame image. Please try again.', 'text-red-500');
+                };
+            });
+        });
+
+        // Event listener for photo upload
+        fileUpload.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    userImage.src = event.target.result;
+                    isImageLoaded = false;
+                    userImage.onload = () => {
+                        isImageLoaded = true;
+                        // Reset image position and scale
+                        imgScale = canvas.width / userImage.width;
+                        imgX = (canvas.width - userImage.width * imgScale) / 2;
+                        imgY = (canvas.height - userImage.height * imgScale) / 2;
+                        drawImages();
+                        instructionMessage.classList.remove('hidden');
+                    };
+                    userImage.onerror = () => {
+                        setMessage('Error loading photo. Please try a different file.', 'text-red-500');
+                    };
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // Event listener for download button
+        downloadLink.addEventListener('click', () => {
+            if (!isImageLoaded || !isFrameLoaded) {
+                setMessage('Please upload a photo and select a frame first.', 'text-red-500');
+                return;
+            }
+            // Trigger download by setting and clicking the link
+            downloadLink.href = canvas.toDataURL('image/png');
+        });
+
+        // Canvas drag and zoom logic
+        canvas.addEventListener('mousedown', (e) => {
+            if (!isImageLoaded) return;
+            isDragging = true;
+            dragStartX = e.clientX - imgX;
+            dragStartY = e.clientY - imgY;
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            imgX = e.clientX - dragStartX;
+            imgY = e.clientY - dragStartY;
+            drawImages();
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('mouseout', () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            if (!isImageLoaded) return;
+            e.preventDefault();
+            const scaleFactor = e.deltaY > 0 ? 0.95 : 1.05;
+            const mouseX = e.offsetX;
+            const mouseY = e.offsetY;
+
+            imgScale *= scaleFactor;
+            imgX = mouseX - (mouseX - imgX) * scaleFactor;
+            imgY = mouseY - (mouseY - imgY) * scaleFactor;
+
+            drawImages();
+        });
+
+        // Mobile touch events for dragging and pinching
+        canvas.addEventListener('touchstart', (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                dragStartX = e.touches[0].clientX - imgX;
+                dragStartY = e.touches[0].clientY - imgY;
+            } else if (e.touches.length === 2) {
+                lastTouchDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+            }
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault();
+            if (isDragging && e.touches.length === 1) {
+                imgX = e.touches[0].clientX - dragStartX;
+                imgY = e.touches[0].clientY - dragStartY;
+                drawImages();
+            } else if (e.touches.length === 2) {
+                const currentTouchDist = Math.hypot(e.touches[1].clientX - e.touches[0].clientX, e.touches[1].clientY - e.touches[0].clientY);
+                if (lastTouchDist > 0) {
+                    const scaleFactor = currentTouchDist / lastTouchDist;
+                    const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+                    const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+                    const canvasRect = canvas.getBoundingClientRect();
+                    const localMidX = midX - canvasRect.left;
+                    const localMidY = midY - canvasRect.top;
+
+                    imgScale *= scaleFactor;
+                    imgX = localMidX - (localMidX - imgX) * scaleFactor;
+                    imgY = localMidY - (localMidY - imgY) * scaleFactor;
+                    drawImages();
+                }
+                lastTouchDist = currentTouchDist;
+            }
+        });
+
+        canvas.addEventListener('touchend', () => {
+            isDragging = false;
+            lastTouchDist = -1;
+        });
+
+        const setMessage = (text, className) => {
+            message.textContent = text;
+            message.className = `text-sm md:text-base font-medium mt-2 ${className}`;
+        };
+
+        // Initial state message
+        setMessage('Start by choosing a frame and uploading a photo.', 'text-gray-500');
+    </script>
+</body>
+</html>
